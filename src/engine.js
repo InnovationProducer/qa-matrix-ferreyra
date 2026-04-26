@@ -34,8 +34,8 @@ function calcOccurrence(pct) {
   return 1;
 }
 
-export function processExcelData(arrayBuffer) {
-  const wb = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
+export function processExcelData(fileData) {
+  const wb = XLSX.read(fileData, { type: 'array' });
   const sheetName = wb.SheetNames[0];
   const ws = wb.Sheets[sheetName];
   const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });

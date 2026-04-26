@@ -23,8 +23,15 @@ export default function App() {
     setLoading(true); setError(null); setResult(null); setSelectedRow(null);
     const reader = new FileReader();
     reader.onload = (e) => {
-      try { setResult(processExcelData(e.target.result)); }
-      catch (err) { setError(err.message); }
+      try {
+        const arrayBuffer = e.target.result;
+        const data = new Uint8Array(arrayBuffer);
+        setResult(processExcelData(data));
+      } catch (err) { setError(err.message || 'Error al procesar el archivo'); }
+      setLoading(false);
+    };
+    reader.onerror = () => {
+      setError('Error al leer el archivo. Intentá de nuevo.');
       setLoading(false);
     };
     reader.readAsArrayBuffer(file);
