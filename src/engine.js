@@ -130,8 +130,23 @@ function parseCondensado(rows) {
 // ═══════════════════════════════════════════════════════════════
 
 export async function processExcelFile(file) {
-  // read-excel-file reads the File object directly (handles ZIP64)
-  const rows = await readXlsxFile(file);
+  // read-excel-file returns [{ sheet, data }] — we need the data array
+  const result = await readXlsxFile(file);
+
+  let rows;
+  if (Array.isArray(result) && result.length > 0) {
+    if (result[0] && result[0].data) {
+      // Format: [{ sheet: "Sheet", data: [[...], [...]] }]
+      rows = result[0].data;
+    } else if (Array.isArray(result[0])) {
+      // Format: [[...], [...]] (direct rows)
+      rows = result;
+    } else {
+      throw new Error('Formato de archivo no reconocido');
+    }
+  } else {
+    throw new Error('No se pudo leer el archivo');
+  }
 
   if (rows.length < 3) throw new Error('El archivo no tiene datos suficientes');
 
