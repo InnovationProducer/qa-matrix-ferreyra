@@ -18,23 +18,28 @@ export default function App() {
   const [selectedRow, setSelectedRow] = useState(null);
   const fileRef = useRef(null);
 
-  const handleFile = useCallback((file) => {
+  const handleFile = useCallback(async (file) => {
     if (!file) return;
     setLoading(true); setError(null); setResult(null); setSelectedRow(null);
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const arrayBuffer = e.target.result;
-        const data = new Uint8Array(arrayBuffer);
-        setResult(processExcelData(data));
-      } catch (err) { setError(err.message || 'Error al procesar el archivo'); }
-      setLoading(false);
-    };
-    reader.onerror = () => {
-      setError('Error al leer el archivo. Intentá de nuevo.');
-      setLoading(false);
-    };
-    reader.readAsArrayBuffer(file);
+    try {
+      let arrayBuffer;
+      if (file.arrayBuffer) {
+        arrayBuffer = await file.arrayBuffer();
+      } else {
+        arrayBuffer = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = () => reject(new Error('No se pudo leer el archivo'));
+          reader.readAsArrayBuffer(file);
+        });
+      }
+      const uint8 = new Uint8Array(arrayBuffer);
+      const res = processExcelData(uint8);
+      setResult(res);
+    } catch (err) {
+      setError(err.message || 'Error al procesar el archivo');
+    }
+    setLoading(false);
   }, []);
 
   const filteredRows = useMemo(() => {
@@ -63,9 +68,9 @@ export default function App() {
         </div>
 
         <div
-          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={(e) => { e.preventDefault(); setDragOver(false); handleFile(e.dataTransfer.files[0]); }}
+          onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setDragOver(true); }}
+          onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setDragOver(false); }}
+          onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setDragOver(false); const f = e.dataTransfer?.files?.[0]; if (f) handleFile(f); }}
           onClick={() => fileRef.current?.click()}
           className="fade-in-d1"
           style={{
@@ -76,14 +81,15 @@ export default function App() {
             background: dragOver ? 'rgba(245,158,11,0.06)' : 'rgba(30,41,59,0.6)',
           }}
         >
-          <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" onChange={(e) => handleFile(e.target.files[0])} style={{ display: 'none' }} />
+          <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" onChange={(e) => { const f = e.target?.files?.[0]; if (f) handleFile(f); e.target.value = ''; }} style={{ display: 'none' }} />
           <div style={{ fontSize: 56, marginBottom: 16 }}>📊</div>
           <p style={{ fontSize: 18, fontWeight: 600, color: '#F8FAFC', margin: '0 0 8px' }}>
             {loading ? 'Procesando datos...' : 'Arrastrá el archivo Excel aquí'}
           </p>
-          <p style={{ fontSize: 14, color: '#64748B', margin: 0 }}>
+          <p style={{ fontSize: 14, color: '#64748B', margin: '0 0 16px' }}>
             {loading ? 'Generando Matriz QA automáticamente' : 'Archivo exportado de SurveyMonkey (.xlsx)'}
           </p>
+          {!loading && <div style={{ padding: '8px 24px', background: '#F59E0B', color: '#0F172A', borderRadius: 8, fontWeight: 600, fontSize: 14, display: 'inline-block' }}>Seleccionar archivo</div>}
           {loading && <div style={{ marginTop: 24 }}><div style={{ width: 200, height: 4, background: '#1E293B', borderRadius: 2, margin: '0 auto', overflow: 'hidden' }}><div style={{ width: '60%', height: '100%', background: '#F59E0B', borderRadius: 2, animation: 'pulse 1.5s infinite' }} /></div></div>}
         </div>
 
