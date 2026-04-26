@@ -200,10 +200,14 @@ export async function processExcelFile(file, bancosControlados) {
   qaRows.sort((a, b) => b.index - a.index);
 
   const totalDefects = qaRows.reduce((s, r) => s + r.cantDefectos, 0);
-  let cumDefects = 0;
+  const totalIndex = qaRows.reduce((s, r) => s + r.index, 0);
+  
+  // Voice classification by cumulative INDEX (not defect count)
+  // AA = top 50% of total index, A = next 20%, B = next 20%, C = last 10%
+  let cumIndex = 0;
   for (const row of qaRows) {
-    cumDefects += row.cantDefectos;
-    const p = cumDefects / totalDefects;
+    cumIndex += row.index;
+    const p = cumIndex / totalIndex;
     row.voz = p <= 0.50 ? 'AA' : p <= 0.70 ? 'A' : p <= 0.90 ? 'B' : 'C';
   }
   qaRows.forEach((r, i) => { r.vozNum = i + 1; });
