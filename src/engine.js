@@ -1,5 +1,5 @@
-import readXlsxFile from 'read-excel-file/browser';
-import { COSTO_DB, SEV_DB, CLASIF_DB, DETECTION_POINTS, OCCURRENCE_TABLE } from './data';
+import readXlsxFile from 'read-excel-file';
+import { COSTO_DB, SEV_DB, DETECTION_POINTS, OCCURRENCE_TABLE } from './data';
 
 // ═══════════════════════════════════════════════════════════════
 // HELPERS
@@ -7,23 +7,30 @@ import { COSTO_DB, SEV_DB, CLASIF_DB, DETECTION_POINTS, OCCURRENCE_TABLE } from 
 
 function mapDetectionPoint(raw) {
   const r = (raw || '').toString().trim();
-  if (r === 'Autocontrol & Scrap' || r === 'Autocontrol' || r === 'Scrap') return 'Autocontrol';
-  if (r === 'Fast Audit' || r === 'Auditoría de Producto') return 'Auditoría de Producto';
-  if (r === 'Quality Gate') return null;
-  if (r === 'SCA') return 'CPA/SCA';
-  for (const dp of DETECTION_POINTS) {
-    if (dp.key === r) return dp.key;
-    if (dp.aliases && dp.aliases.includes(r)) return dp.key;
-  }
-  return null;
+  // Direct matches to our 11 canonical keys
+  const MAP = {
+    'Recepción': 'Recepción',
+    'Autocontrol': 'Autocontrol',
+    'Autocontrol & Scrap': 'Autocontrol',
+    'IPPM': 'IPPM',
+    'Scrap': 'Scrap',
+    'Quality Gate': 'Quality Gate',
+    'Fast Audit': 'Fast Audit',
+    'Auditoría de Producto': 'Auditoría de Producto',
+    'Auditoría de producto': 'Auditoría de Producto',
+    'Antena': 'Antena',
+    'SCA': 'SCA',
+    'CPA/SCA': 'SCA',
+    'TDF/TTV': 'TDF/TTV',
+    'Garantía': 'Garantía',
+  };
+  return MAP[r] || null;
 }
 
 function findValueInRange(row, start, end) {
   for (let c = start; c <= end && c < row.length; c++) {
     const v = row[c];
-    if (v != null && v !== '' && String(v).trim() !== '') {
-      return String(v).trim();
-    }
+    if (v != null && v !== '' && String(v).trim() !== '') return String(v).trim();
   }
   return null;
 }
@@ -41,21 +48,14 @@ function calcOccurrence(pct) {
 // ═══════════════════════════════════════════════════════════════
 
 function detectFormat(headers) {
-  const totalCols = headers.length;
-  if (totalCols > 100) return 'ampliado';
-  return 'condensado';
+  return headers.length > 100 ? 'ampliado' : 'condensado';
 }
 
 function parseAmpliado(rows) {
-  // Ampliado: 411 cols. Each SurveyMonkey question is expanded into N columns (one per option).
-  // Only the selected option has a value in that row.
-  // Col 9-19: Detection point | Col 20-23: Seat type | Col 24-53: Quad delantero
-  // Col 54-86: Quad trasero | Col 87-91: Model | Col 92-124: Component | Col 125+: Defects
   const records = [];
   for (let i = 2; i < rows.length; i++) {
     const row = rows[i];
     if (!row || row.length < 92) continue;
-
     const detection = findValueInRange(row, 9, 19);
     const seatType = findValueInRange(row, 20, 23);
     const quadDel = findValueInRange(row, 24, 53);
@@ -63,101 +63,95 @@ function parseAmpliado(rows) {
     const model = findValueInRange(row, 87, 91);
     const component = findValueInRange(row, 92, 124);
     const defectName = findValueInRange(row, 125, row.length - 1);
-
     if (!detection || !seatType || !component || !defectName) continue;
     const detPoint = mapDetectionPoint(detection);
     if (!detPoint) continue;
-
-    const quadrant = quadDel || quadTras || null;
-    const modelStr = model || 'N/A';
-    const concat = `${defectName} en el sector ${quadrant || 'N/A'} del modelo ${modelStr}`;
-
-    records.push({ detection: detPoint, seatType, quadrant, model: modelStr, component, defectName, concat });
+    records.push({
+      detection: detPoint, seatType, quadrant: quadDel || quadTras || null,
+      model: model || 'N/A', component, defectName,
+      concat: `${defectName} en el sector ${quadDel || quadTras || 'N/A'} del modelo ${model || 'N/A'}`,
+    });
   }
   return records;
 }
 
 function parseCondensado(rows) {
   const headers = rows[0];
-  const col11Header = String(headers[11] || '').toLowerCase();
-  const hasSequence = col11Header.includes('secuencia') || col11Header.includes('número');
-
-  const colQuadDel = hasSequence ? 12 : 11;
-  const colQuadTras = 13;
-  const colModel = 14;
-  const colComponent = 15;
-  const defectStart = 16;
-
+  const col11 = String(headers[11] || '').toLowerCase();
+  const hasSeq = col11.includes('secuencia') || col11.includes('número');
+  const colQD = hasSeq ? 12 : 11, colQT = 13, colM = 14, colC = 15, defStart = 16;
   let startRow = 1;
   if (rows.length > 1) {
-    const testVal = String(rows[1][9] || '').trim().toLowerCase();
-    if (testVal === 'response' || testVal === '') startRow = 2;
+    const t = String(rows[1][9] || '').trim().toLowerCase();
+    if (t === 'response' || t === '') startRow = 2;
   }
-
   const records = [];
   for (let i = startRow; i < rows.length; i++) {
     const row = rows[i];
-    if (!row || row.length < colComponent + 1) continue;
-
-    const detection = row[9];
-    const seatType = row[10];
-    const model = row[colModel];
-    const component = row[colComponent];
+    if (!row || row.length < colC + 1) continue;
+    const detection = row[9], seatType = row[10], model = row[colM], component = row[colC];
     if (!detection || !seatType || !component) continue;
-
-    const defectName = findValueInRange(row, defectStart, row.length - 1);
+    const defectName = findValueInRange(row, defStart, row.length - 1);
     if (!defectName || defectName.toLowerCase() === 'response') continue;
-
     const detPoint = mapDetectionPoint(String(detection).trim());
     if (!detPoint) continue;
-
-    const qd = row[colQuadDel];
-    const qt = row[colQuadTras];
+    const qd = row[colQD], qt = row[colQT];
     let quadrant = null;
     if (qd && String(qd).trim() && String(qd).toLowerCase() !== 'response') quadrant = String(qd).trim();
     else if (qt && String(qt).trim() && String(qt).toLowerCase() !== 'response') quadrant = String(qt).trim();
-
     const modelStr = (model && String(model).trim()) || 'N/A';
-    const concat = `${defectName} en el sector ${quadrant || 'N/A'} del modelo ${modelStr}`;
-
-    records.push({ detection: detPoint, seatType: String(seatType).trim(), quadrant, model: modelStr, component: String(component).trim(), defectName, concat });
+    records.push({
+      detection: detPoint, seatType: String(seatType).trim(), quadrant,
+      model: modelStr, component: String(component).trim(), defectName,
+      concat: `${defectName} en el sector ${quadrant || 'N/A'} del modelo ${modelStr}`,
+    });
   }
   return records;
 }
 
 // ═══════════════════════════════════════════════════════════════
-// MAIN ENTRY POINT
+// DYNAMIC COST CALCULATION
+// If detected in internal points (1-7) → costo interno
+// If detected in external points (8-11) → costo externo
+// If detected in both → MAX(interno, externo)
 // ═══════════════════════════════════════════════════════════════
 
-export async function processExcelFile(file) {
-  // read-excel-file returns [{ sheet, data }] — we need the data array
-  const result = await readXlsxFile(file);
+function calcDynamicCost(defectName, detectionPoints) {
+  const costoData = COSTO_DB[defectName] || [1, 4];
+  const costoInt = costoData[0];
+  const costoExt = costoData[1];
 
-  let rows;
-  if (Array.isArray(result) && result.length > 0) {
-    if (result[0] && result[0].data) {
-      // Format: [{ sheet: "Sheet", data: [[...], [...]] }]
-      rows = result[0].data;
-    } else if (Array.isArray(result[0])) {
-      // Format: [[...], [...]] (direct rows)
-      rows = result;
-    } else {
-      throw new Error('Formato de archivo no reconocido');
+  let hasInternal = false, hasExternal = false;
+  for (const dp of DETECTION_POINTS) {
+    if (detectionPoints[dp.key] > 0) {
+      if (dp.scope === 'int') hasInternal = true;
+      if (dp.scope === 'ext') hasExternal = true;
     }
-  } else {
-    throw new Error('No se pudo leer el archivo');
   }
 
-  if (rows.length < 3) throw new Error('El archivo no tiene datos suficientes');
+  if (hasInternal && hasExternal) return Math.max(costoInt, costoExt);
+  if (hasExternal) return costoExt;
+  return costoInt; // default to internal
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MAIN
+// ═══════════════════════════════════════════════════════════════
+
+export async function processExcelFile(file, bancosControlados) {
+  const result = await readXlsxFile(file);
+  let rows;
+  if (Array.isArray(result) && result.length > 0) {
+    rows = (result[0] && result[0].data) ? result[0].data : Array.isArray(result[0]) ? result : null;
+  }
+  if (!rows || rows.length < 3) throw new Error('El archivo no tiene datos suficientes');
 
   const format = detectFormat(rows[0]);
   const records = format === 'ampliado' ? parseAmpliado(rows) : parseCondensado(rows);
+  if (records.length === 0) throw new Error('No se encontraron registros válidos.');
 
-  if (records.length === 0) {
-    throw new Error('No se encontraron registros válidos. Verificá que el archivo sea el export de SurveyMonkey.');
-  }
-
-  const bancosControlados = records.length;
+  // Use provided bancosControlados or fall back to record count
+  const bancos = bancosControlados || records.length;
 
   // Group by concat
   const groups = {};
@@ -172,34 +166,34 @@ export async function processExcelFile(file) {
     groups[r.concat].detectionPoints[r.detection] = (groups[r.concat].detectionPoints[r.detection] || 0) + 1;
   }
 
-  // Build QA rows
   const qaRows = [];
   for (const g of Object.values(groups)) {
     const dn = g.defectName;
-    const sev = SEV_DB[dn] ? SEV_DB[dn][1] : 3;
-    const costoData = COSTO_DB[dn] || [1, 4, ''];
-    const costoInterno = costoData[0];
-    const criterio = costoData[2];
-    const clasifArr = CLASIF_DB[dn] || [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    const sev = SEV_DB[dn] || 3;
+    const costo = calcDynamicCost(dn, g.detectionPoints);
 
-    const pct = g.count / bancosControlados;
+    const pct = g.count / bancos;
     const occurrence = calcOccurrence(pct);
 
     let detectability = 0;
     const dpBreakdown = {};
     for (const dp of DETECTION_POINTS) {
-      const cnt = g.detectionPoints[dp.key] || 0;
-      if (cnt > 0) { detectability += dp.weight; dpBreakdown[dp.key] = dp.weight; }
+      if (g.detectionPoints[dp.key] > 0) {
+        detectability += dp.weight;
+        dpBreakdown[dp.key] = dp.weight;
+      }
     }
     if (detectability === 0) detectability = 4;
 
-    const index = sev * occurrence * detectability * costoInterno;
+    const index = sev * occurrence * detectability * costo;
+    const costoData = COSTO_DB[dn] || [1, 4];
 
     qaRows.push({
       concat: g.concat, defectName: dn, model: g.model, quadrant: g.quadrant,
       component: g.component, severidad: sev, cantDefectos: g.count,
       ocurrenciaPct: pct, ocurrencia: occurrence, detectabilidad: detectability,
-      dpBreakdown, costo: costoInterno, criterio, index, clasificacion: clasifArr,
+      dpBreakdown, costo, costoInterno: costoData[0], costoExterno: costoData[1],
+      index,
     });
   }
 
@@ -216,7 +210,7 @@ export async function processExcelFile(file) {
 
   return {
     qaRows, totalRecords: records.length, totalDefectTypes: qaRows.length,
-    bancosControlados, totalDefects, format,
+    bancosControlados: bancos, totalDefects, format,
     summary: {
       AA: qaRows.filter(r => r.voz === 'AA').length, A: qaRows.filter(r => r.voz === 'A').length,
       B: qaRows.filter(r => r.voz === 'B').length, C: qaRows.filter(r => r.voz === 'C').length,

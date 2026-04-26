@@ -1,17 +1,12 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
-body{font-family:'IBM Plex Sans',system-ui,-apple-system,sans-serif;background:#0F172A;color:#E2E8F0;min-height:100vh}
+html{-webkit-font-smoothing:antialiased}
+body{font-family:'IBM Plex Sans',system-ui,sans-serif;background:#0F172A;color:#E2E8F0;min-height:100vh}
 ::-webkit-scrollbar{width:6px;height:6px}
 ::-webkit-scrollbar-track{background:#1E293B}
 ::-webkit-scrollbar-thumb{background:#475569;border-radius:3px}
-::-webkit-scrollbar-thumb:hover{background:#64748B}
 ::selection{background:#F59E0B;color:#0F172A}
-input:focus{outline:2px solid #F59E0B;outline-offset:-1px}
+input:focus,textarea:focus{outline:2px solid #F59E0B;outline-offset:-1px}
 button{font-family:inherit}
 @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 @keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
-@keyframes slideDown{from{opacity:0;max-height:0}to{opacity:1;max-height:500px}}
 .fade-in{animation:fadeIn .4s ease-out both}
-.fade-in-d1{animation:fadeIn .4s ease-out .05s both}
-.fade-in-d2{animation:fadeIn .4s ease-out .1s both}
-.fade-in-d3{animation:fadeIn .4s ease-out .15s both}
