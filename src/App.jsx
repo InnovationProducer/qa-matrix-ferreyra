@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useRef } from 'react';
-import { processExcelData } from './engine';
+import { processExcelFile } from './engine';
 import { DETECTION_POINTS, CLASIF_LABELS } from './data';
 
 const VOZ_COLORS = { AA: '#DC2626', A: '#EA580C', B: '#CA8A04', C: '#16A34A' };
@@ -22,19 +22,7 @@ export default function App() {
     if (!file) return;
     setLoading(true); setError(null); setResult(null); setSelectedRow(null);
     try {
-      let arrayBuffer;
-      if (file.arrayBuffer) {
-        arrayBuffer = await file.arrayBuffer();
-      } else {
-        arrayBuffer = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result);
-          reader.onerror = () => reject(new Error('No se pudo leer el archivo'));
-          reader.readAsArrayBuffer(file);
-        });
-      }
-      const uint8 = new Uint8Array(arrayBuffer);
-      const res = processExcelData(uint8);
+      const res = await processExcelFile(file);
       setResult(res);
     } catch (err) {
       setError(err.message || 'Error al procesar el archivo');
