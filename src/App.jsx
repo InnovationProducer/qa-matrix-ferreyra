@@ -212,6 +212,7 @@ export default function App() {
           <h1 style={{ fontSize: 42, fontWeight: 700, color: '#F8FAFC', margin: 0 }}>Matriz QA</h1>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 16, maxWidth: 700, width: '100%' }}>
+          {result && <HomeCard icon="📈" title="Giro Activo" desc={giroName || 'Volver a la matriz'} onClick={() => setPage('matrix')} highlight />}
           <HomeCard icon="📊" title="Nuevo Giro" desc="Cargar Excel de SurveyMonkey" onClick={() => setPage('upload')} />
           <HomeCard icon="📋" title="Historial" desc="Ver giros anteriores" onClick={loadHistory} />
           <HomeCard icon="⚙️" title="Defectos" desc="Editar severidad y costos" onClick={() => setPage('defectos')} />
@@ -276,7 +277,10 @@ export default function App() {
     return (
       <div style={{ minHeight: '100vh', padding: 24, maxWidth: 1100, margin: '0 auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
-          <Btn onClick={() => setPage('home')}>← Inicio</Btn>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {result ? <Btn onClick={() => setPage('matrix')}>← Matriz</Btn> : <Btn onClick={() => setPage('home')}>← Inicio</Btn>}
+            {result && <span style={{ fontSize: 11, color: '#F59E0B', fontWeight: 600 }}>Giro activo: {giroName || 'Sin nombre'}</span>}
+          </div>
           <h2 style={{ fontSize: 22, fontWeight: 700, color: '#F8FAFC', margin: 0 }}>Defectos ({defectos.length})</h2>
           <div style={{ display: 'flex', gap: 8 }}>
             <Btn bg="#F59E0B" color="#0F172A" onClick={() => setEditDef({ nombre: '', severidad: 3, costo_interno: 1, costo_externo: 4 })}>+ Nuevo</Btn>
@@ -375,7 +379,11 @@ export default function App() {
             <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 3, color: '#F59E0B', textTransform: 'uppercase' }}>WCM · Pilar Calidad</div>
             <h1 style={{ fontSize: 20, fontWeight: 700, color: '#F8FAFC', margin: '2px 0 0' }}>{giroName || 'Matriz QA'}</h1>
           </div>
-          <Btn onClick={() => { setPage('home'); setResult(null); setFilter('ALL'); setSearch(''); setPendingFile(null); setBancos(''); setGiroName(''); setPdcaMap({}); setGiroId(null); }}>← Inicio</Btn>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Btn onClick={() => setPage('defectos')}>⚙️ Defectos</Btn>
+            <Btn onClick={() => { setPage('home'); }}>← Inicio</Btn>
+            <Btn onClick={() => { setPage('home'); setResult(null); setFilter('ALL'); setSearch(''); setPendingFile(null); setBancos(''); setGiroName(''); setPdcaMap({}); setGiroId(null); }} bg="#7F1D1D" color="#FCA5A5" style={{ fontSize: 11 }}>Cerrar giro</Btn>
+          </div>
         </div>
       </div>
       <div style={{ padding: '16px 24px', maxWidth: 1900, margin: '0 auto' }}>
@@ -479,12 +487,12 @@ export default function App() {
   );
 }
 
-function HomeCard({ icon, title, desc, onClick }) {
-  return <div onClick={onClick} style={{ background: '#1E293B', borderRadius: 16, padding: '32px 24px', border: '1px solid #334155', cursor: 'pointer', textAlign: 'center', transition: 'border-color .2s' }}
-    onMouseEnter={e => e.currentTarget.style.borderColor = '#F59E0B'} onMouseLeave={e => e.currentTarget.style.borderColor = '#334155'}>
+function HomeCard({ icon, title, desc, onClick, highlight }) {
+  return <div onClick={onClick} style={{ background: highlight ? '#1E3A5F' : '#1E293B', borderRadius: 16, padding: '32px 24px', border: `1px solid ${highlight ? '#F59E0B' : '#334155'}`, cursor: 'pointer', textAlign: 'center', transition: 'border-color .2s' }}
+    onMouseEnter={e => e.currentTarget.style.borderColor = '#F59E0B'} onMouseLeave={e => e.currentTarget.style.borderColor = highlight ? '#F59E0B' : '#334155'}>
     <div style={{ fontSize: 40, marginBottom: 12 }}>{icon}</div>
     <div style={{ fontWeight: 700, color: '#F8FAFC', fontSize: 18, marginBottom: 4 }}>{title}</div>
-    <div style={{ color: '#64748B', fontSize: 13 }}>{desc}</div>
+    <div style={{ color: highlight ? '#F59E0B' : '#64748B', fontSize: 13 }}>{desc}</div>
   </div>;
 }
 
